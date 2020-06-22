@@ -35,11 +35,7 @@ namespace FlightControlAndroid.Models
             try
             {
                 HttpClient client = new HttpClient();
-
-                // following 2 lines are for testing issues.
-                // HttpResponseMessage response = await client.GetAsync(_my_uri);
-                HttpResponseMessage response = await client.GetAsync("https://upload.wikimedia.org/wikipedia/commons/4/47/Uri_Porat1.jpg");
-                // ok since now
+                HttpResponseMessage response = await client.GetAsync(_my_uri);
 
                 if (response.IsSuccessStatusCode)
                 {

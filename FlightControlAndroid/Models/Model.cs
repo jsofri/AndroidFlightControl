@@ -27,15 +27,15 @@ namespace FlightControlAndroid.Models
          */
         public async Task<int> PostCommand(Command command)
         {
-            Result res = Result.Ok;
+            Result res;
 
             if (_simulatorClient != null)
             {
-                //res = await _simulatorClient.Execute(command);
+                res = await _simulatorClient.Execute(command);
             }
             else
             {
-                res = Result.ServerError;
+                res = Result.ExternalServerError;
             }
 
             return (int)res;

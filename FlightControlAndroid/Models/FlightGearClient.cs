@@ -16,7 +16,11 @@ using System.Threading.Tasks;
 namespace FlightControlAndroid.Models
 {
     // Enum to represent status code of REST convention.
-    public enum Result { Ok = 200, NotModified = 304, InvalidCommand = 400, ServerError = 500 }
+    public enum Result
+    {
+        Ok = 200, InvalidValue = 302, NotModified = 304, InvalidCommand = 400, InternalServerError = 500,
+        ExternalServerError = 503
+    }
 
     /*
      * class for handling command in a queue of 2 threads.
@@ -55,6 +59,7 @@ namespace FlightControlAndroid.Models
         private readonly TcpClient _client;
         private readonly int _port;
         private readonly IPAddress _host;
+        private bool _connected = false;
 
 
         /*
@@ -67,19 +72,25 @@ namespace FlightControlAndroid.Models
             _getDataBytes = Encoding.ASCII.GetBytes(getData);
             _port = Int32.Parse(port);
             _host = IPAddress.Parse(host);
-
-            // in comment for testing.
-            //start();
+            start();
         }
 
         /*
-         * Called by the WebApi Controller, it will await on the returned Task<>.
+         * Called by the WebApi Controller, await on the returned Task<>.
          */
         public Task<Result> Execute(Command cmd)
         {
-            var asyncCommand = new AsyncCommand(cmd);
-            _queue.Add(asyncCommand);
-            return asyncCommand.Task;
+            // if TcpClient is connected to a server.
+            if (_connected)
+            {
+                var asyncCommand = new AsyncCommand(cmd);
+                _queue.Add(asyncCommand);
+                return asyncCommand.Task;
+            }
+            else
+            {
+                return GetTaskErrorCode();
+            }
         }
 
         /*
@@ -101,7 +112,7 @@ namespace FlightControlAndroid.Models
             Result res;
             int nRead;
 
-            _client.Connect(_host, _port);
+            TryConnection();
             NetworkStream stream = _client.GetStream();
             stream.Write(sendBuffer, 0, sendBuffer.Length);
 
@@ -118,10 +129,32 @@ namespace FlightControlAndroid.Models
                 }
                 catch (Exception)
                 {
-                    command.Completion.SetResult(res);
+                    command.Completion.SetResult(Result.ExternalServerError);
                 }
-                
+
             }
+        }
+
+        /*
+         * return a Task<Result> with the value of external server error status code.
+         */
+        private async Task<Result> GetTaskErrorCode()
+        {
+            return await Task.FromResult(Result.ExternalServerError);
+        }
+
+        /*
+         * Try connecting to TCP server. If successed, change data member _connected to true.
+         */
+        private void TryConnection()
+        {
+            try
+            {
+                _client.Connect(_host, _port);
+                _connected = true;
+            }
+            catch (Exception)
+            { }
         }
 
         /*
@@ -145,7 +178,7 @@ namespace FlightControlAndroid.Models
          */
         private Result bytesAnswerToResult(byte[] recvBuffer, int nRead, AsyncCommand command)
         {
-            var result = Result.ServerError;
+            var result = Result.InternalServerError;
             string fromServer = Encoding.ASCII.GetString(recvBuffer);
             int i = fromServer.IndexOf('\0');
             fromServer = (i >= 0) ? fromServer.Substring(0, i) : fromServer;
@@ -187,19 +220,19 @@ namespace FlightControlAndroid.Models
             }
             catch (Exception)
             {
-                answer = Result.ServerError;
+                answer = Result.InvalidValue;
             }
 
             return answer;
         }
 
         /*
-         * Is calles when it's known that an error occured.
+         * Is called when it's known that an error occured.
          * Method return the specific reason.
          */
         private Result GetErrorResult(double fromServer, double fromClient)
         {
-            Result answer = Result.ServerError;
+            Result answer = Result.InternalServerError;
             double diff = fromServer - fromClient;
 
             if (diff > epsilon || diff < -epsilon)
@@ -226,7 +259,7 @@ namespace FlightControlAndroid.Models
         private bool VerifySimilarityAndRange(double fromServer,
                                               double fromClient, double min)
         {
-            bool result = true;
+            bool result;
             double diff = fromServer - fromClient;
 
             if (fromServer < min || fromServer > 1)
@@ -243,7 +276,7 @@ namespace FlightControlAndroid.Models
             }
             else
             {
-                result = (diff < epsilon && diff > -epsilon);
+                result = (diff < epsilon && diff > -epsilon && fromClient > min && fromClient <= 1);
             }
 
             return result;
