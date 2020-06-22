@@ -1,23 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
 
 namespace FlightControlAndroid.Util
 {
     public class Command
     {
         [JsonPropertyName("throttle")]
-        public double Throttle { set; get; }
+        public double Throttle { get; set; }
 
         [JsonPropertyName("aileron")]
-        public double Aileron{ set; get; }
+        public double Aileron { get; set; }
 
         [JsonPropertyName("rudder")]
-        public double Rudder{ set; get; }
+        public double Rudder { get; set; }
 
         [JsonPropertyName("elevator")]
-        public double Elevator { set; get; }
+        public double Elevator { get; set;}
     }
 }
