@@ -25,9 +25,6 @@ namespace FlightControlAndroid
 
             services.AddSingleton(typeof(IModel), typeof(Model));
             services.AddSingleton<IConfiguration>(Configuration);
-
-            //var json = GlobalConfiguration.Configuration.Formatters.JsonFormatter;
-            //json.UseDataContractJsonSerializer = true;
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
