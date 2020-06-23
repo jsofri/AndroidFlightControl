@@ -11,6 +11,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FlightControlAndroid.Models
@@ -112,7 +113,7 @@ namespace FlightControlAndroid.Models
             Result res;
             int nRead;
 
-            TryConnection();
+            TryConnectionLoop();
             NetworkStream stream = _client.GetStream();
             stream.Write(sendBuffer, 0, sendBuffer.Length);
 
@@ -122,6 +123,9 @@ namespace FlightControlAndroid.Models
                 {
                     sendBuffer = ConvertCommandToByteArray(command);
                     stream.Write(sendBuffer, 0, sendBuffer.Length);
+
+                    // Deliberately wait for 1 MS to allow simulator process command.
+                    Thread.Sleep(1);
                     stream.Write(_getDataBytes, 0, _getDataBytes.Length);
                     nRead = stream.Read(recvBuffer, 0, recvBuffer.Length);
                     res = bytesAnswerToResult(recvBuffer, nRead, command);
@@ -146,15 +150,18 @@ namespace FlightControlAndroid.Models
         /*
          * Try connecting to TCP server. If successed, change data member _connected to true.
          */
-        private void TryConnection()
+        private void TryConnectionLoop()
         {
-            try
+            while (!_connected)
             {
-                _client.Connect(_host, _port);
-                _connected = true;
+                try
+                {
+                    _client.Connect(_host, _port);
+                    _connected = true;
+                }
+                catch (Exception)
+                { }
             }
-            catch (Exception)
-            { }
         }
 
         /*
@@ -178,7 +185,7 @@ namespace FlightControlAndroid.Models
          */
         private Result bytesAnswerToResult(byte[] recvBuffer, int nRead, AsyncCommand command)
         {
-            var result = Result.InternalServerError;
+            var result = Result.ExternalServerError;
             string fromServer = Encoding.ASCII.GetString(recvBuffer);
             int i = fromServer.IndexOf('\0');
             fromServer = (i >= 0) ? fromServer.Substring(0, i) : fromServer;
